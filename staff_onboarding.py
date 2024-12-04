@@ -80,24 +80,24 @@ def enter_email_address(driver):
         teacher_rows = driver.find_elements(By.XPATH, '//tr[starts-with(@id, "teacher-")]')
 
         for row in teacher_rows:
-            full_name = row.get_attribute("data-full_name")
+            full_name = row.get_dom_attribute("data-full_name")
             if full_name == TARGET_NAME:
-                unique_id = row.get_attribute("id").split('-')[1]
+                unique_id = row.get_dom_attribute("id").split('-')[1]
 
                 email_input = row.find_element(By.ID, f"email-{unique_id}")
                 email_input.clear()
                 email_input.send_keys(EMAIL_ADDRESS)
 
                 analytics_checkbox = row.find_element(By.ID, f"analytics-{unique_id}")
-                if analytics_checkbox.get_attribute("data-value") != ANALYTICS:
+                if analytics_checkbox.get_dom_attribute("data-value") != ANALYTICS:
                     analytics_checkbox.click()
 
                 sen_checkbox = row.find_element(By.ID, f"provisionmap-{unique_id}")
-                if sen_checkbox.get_attribute("data-value") != SEN:
+                if sen_checkbox.get_dom_attribute("data-value") != SEN:
                     sen_checkbox.click()
 
                 detentions_checkbox = row.find_element(By.ID, f"detentions-{unique_id}")
-                if detentions_checkbox.get_attribute("data-value") != DETENTIONS:
+                if detentions_checkbox.get_dom_attribute("data-value") != DETENTIONS:
                     detentions_checkbox.click()
 
                 return unique_id
