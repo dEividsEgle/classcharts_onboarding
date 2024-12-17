@@ -33,14 +33,15 @@ SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
 RECEIVER_EMAIL = os.getenv("RECEIVER_EMAIL")
 EMAIL_SERVER = os.getenv("EMAIL_SERVER")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", 993))
+EMAIL_PORT = int(os.getenv("EMAIL_PORT"))
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 EMAIL_SUBJECT = os.getenv("EMAIL_SUBJECT")
+PROCESSED_UIDS_FILE = os.getenv("PROCESSED_UIDS_FILE")
 
-DEFAULT_ANALYTICS = "YES"
-DEFAULT_SEN = "YES"
-DEFAULT_DETENTIONS = "YES"
+DEFAULT_ANALYTICS = "1"
+DEFAULT_SEN = "1"
+DEFAULT_DETENTIONS = "1"
 
 script_directory = Path(__file__).resolve().parent
 driver_path = script_directory.joinpath("edgedriver_macarm64", "msedgedriver")
@@ -60,6 +61,16 @@ def wait_for_element(driver, by, element_identifier, timeout=10):
         return None
     return driver.find_element(by, element_identifier)
 
+def get_processed_uids():
+    if not os.path.exists(PROCESSED_UIDS_FILE):
+        return set()
+    with open(PROCESSED_UIDS_FILE, "r") as file:
+        return set(line.strip() for line in file)
+
+def save_processed_uids(uid):
+    with open(PROCESSED_UIDS_FILE, "a") as file:
+        file.write(f"{uid}\n")
+
 def fetch_latest_email():
     try:
         mail = imaplib.IMAP4_SSL(EMAIL_SERVER, EMAIL_PORT)
@@ -76,22 +87,34 @@ def fetch_latest_email():
             logging.info("No matching emails found.")
             return ""
 
-        latest_email_id = email_ids[-1]
-        status, msg_data = mail.fetch(latest_email_id, "(RFC822)")
-        if status != "OK":
-            logging.info("Failed to fetch the latest email.")
-            return ""
+        processed_uids = get_processed_uids()
 
-        raw_email = msg_data[0][1]
-        msg = email.message_from_bytes(raw_email)
-        mail.logout()
+        for email_id in reversed(email_ids):
+            status, response = mail.fetch(email_id, "(UID)")
+            uid = response[0].split()[-1].decode()
 
-        if msg.is_multipart():
-            for part in msg.walk():
-                if part.get_content_type() == "text/plain":
-                    return part.get_payload(decode=True).decode()
-        else:
-            return msg.get_payload(decode=True).decode()
+            if uid in processed_uids:
+                logging.info(f"Email with UID {uid} already processed. Skipping.")
+                continue
+
+
+            status, msg_data = mail.fetch(email_id, "(RFC822)")
+            if status != "OK" or not msg_data or not isinstance(msg_data[0], tuple):
+                logging.info(f"Failed to fetch email with UID {uid}.")
+                continue
+
+            raw_email = msg_data[0][1]
+            msg = email.message_from_bytes(raw_email)
+            save_processed_uids(uid)
+            mail.logout()
+
+            if msg.is_multipart():
+                for part in msg.walk():
+                    if part.get_content_type() == "text/plain":
+                        return part.get_payload(decode=True).decode()
+            else:
+                return msg.get_payload(decode=True).decode()
+
     except Exception as e:
         logging.info(f"Error fetching email: {e}")
         return ""
@@ -104,15 +127,15 @@ def parse_users_from_email():
         return users
 
     user_pattern = re.compile(
-        r"(?P<first_name>\w+),\s*(?P<last_name>[\w'-]+),.*?,.*?,(?P<email>[\w\.-]+@[\w\.-]+\.\w+)"
+        r"(?P<first_name>\w+),\s*(?P<last_name>[\w'-]+),.*?,.*?,(?P<email>[\w.-]+@[\w.-]+\.\w+)"
     )
     matches = user_pattern.finditer(email_content)
     for match in matches:
         full_name = f"{match.group('first_name')} {match.group('last_name')}"
-        email = match.group('email')
+        user_email = match.group('email')
         users.append({
             "name": full_name,
-            "email": email,
+            "email": user_email,
             "analytics": DEFAULT_ANALYTICS,
             "sen": DEFAULT_SEN,
             "detentions": DEFAULT_DETENTIONS
@@ -207,7 +230,7 @@ def send_summary_email(successful_users, failed_users):
     msg = EmailMessage()
     msg['From'] = sender
     msg['To'] = RECEIVER_EMAIL
-    msg['Subject'] = "Class Charts User Activation Summary"
+    msg['Subject'] = "Staff Onboarding - Class Charts User Activation Summary"
 
     content = "Task Summary:\n\n"
     if successful_users:
