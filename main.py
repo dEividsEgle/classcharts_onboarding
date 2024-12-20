@@ -246,9 +246,14 @@ def send_summary_email(successful_users, failed_users, start_time, end_time):
     )
 
     if successful_users:
-        content += "Successfully Processed Users:\n" + "\n".join(successful_users) + "\n\n"
+        content += "Successfully Processed Users:\n"
+        for user in successful_users:
+            content += f"{user['name']} ({user['email']})\n"
+            content += f"Password reset email sent to: {user['email']}.\n\n"
     if failed_users:
-        content += "Failed Users:\n" + "\n".join(failed_users) + "\n"
+        content += "Failed Users:\n"
+        for user in failed_users:
+            content += f"{user['name']} ({user['email']})\n"
 
     if debugging:
         content += "Log files were not saved, as debugging is enabled.\n"
@@ -289,13 +294,13 @@ def main():
                 user_unique_id = enter_email_address(driver, user)
                 if user_unique_id:
                     set_password(driver, user_unique_id, user)
-                    successful_users.append(f"{user['name']} ({user['email']})")
+                    successful_users.append({"name": user["name"], "email": user["email"]})
                     logging.info(f"Successfully processed user: {user['name']}")
                 else:
-                    failed_users.append(f"{user['name']} ({user['email']})")
+                    failed_users.append({"name": user["name"], "email": user["email"]})
                     logging.info(f"Failed to find user: {user['name']}")
             except Exception as e:
-                failed_users.append(f"{user['name']} ({user['email']})")
+                failed_users.append({"name": user["name"], "email": user["email"]})
                 logging.info(f"Error processing user {user['name']}: {e}")
 
     except WebDriverException as e:
