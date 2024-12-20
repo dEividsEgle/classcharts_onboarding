@@ -248,12 +248,12 @@ def send_summary_email(successful_users, failed_users, start_time, end_time):
     if successful_users:
         content += "Successfully Processed Users:\n"
         for user in successful_users:
-            content += f"{user['name']} ({user['email']})\n"
+            content += f"{user['name']} - {user['email']}\n"
             content += f"Password reset email sent to: {user['email']}.\n\n"
     if failed_users:
         content += "Failed Users:\n"
         for user in failed_users:
-            content += f"{user['name']} ({user['email']})\n"
+            content += f"{user['name']} - {user['email']}\n"
 
     if debugging:
         content += "Log files were not saved, as debugging is enabled.\n"
@@ -265,7 +265,7 @@ def send_summary_email(successful_users, failed_users, start_time, end_time):
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
             smtp.send_message(msg)
-        logging.info(f"Summary email sent successfuly to {RECEIVER_EMAIL}")
+        logging.info(f"Summary email sent successfully to {RECEIVER_EMAIL}")
     except Exception as e:
         logging.error(f"Error sending summary email: {e}")
 
@@ -289,7 +289,7 @@ def main():
             return
 
         for user in users:
-            logging.info(f"Processing user: {user['name']} ({user['email']})")
+            logging.info(f"Processing user: {user['name']} ({user['email']}) with unique ID: {user_unique_id}")
             try:
                 user_unique_id = enter_email_address(driver, user)
                 if user_unique_id:
@@ -306,7 +306,11 @@ def main():
     except WebDriverException as e:
         logging.info(f"General WebDriver error: {e}")
     finally:
-        send_summary_email(successful_users, failed_users, start_time, end_time)
+        if successful_users or failed_users:
+            end_time = datetime.now()
+            send_summary_email(successful_users, failed_users, start_time, end_time)
+        else:
+            logging.info("No email content parsed. Summary email will not be sent.")
 
         if debugging:
             print(log_stream.getvalue())
