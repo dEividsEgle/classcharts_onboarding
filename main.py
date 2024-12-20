@@ -42,10 +42,6 @@ EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 EMAIL_SUBJECT = os.getenv("EMAIL_SUBJECT")
 PROCESSED_UIDS_FILE = os.getenv("PROCESSED_UIDS_FILE")
 
-DEFAULT_ANALYTICS = "1"
-DEFAULT_SEN = "1"
-DEFAULT_DETENTIONS = "1"
-
 script_directory = Path(__file__).resolve().parent
 driver_path = script_directory.joinpath("edgedriver_macarm64", "msedgedriver")
 
@@ -149,9 +145,6 @@ def parse_users_from_email():
         users.append({
             "name": full_name,
             "email": user_email,
-            "analytics": DEFAULT_ANALYTICS,
-            "sen": DEFAULT_SEN,
-            "detentions": DEFAULT_DETENTIONS
         })
     return users
 
@@ -189,19 +182,19 @@ def enter_email_address(driver, user):
                 email_input.send_keys(user["email"])
 
                 analytics_checkbox = row.find_element(By.ID, f"analytics-{unique_id}")
-                if analytics_checkbox.get_dom_attribute("data-value") != user["analytics"]:
+                if analytics_checkbox.get_dom_attribute("data-value") == "no":
                     scroll_to_element(driver, analytics_checkbox)
                     WebDriverWait(driver, 10).until(EC.element_to_be_clickable(analytics_checkbox))
                     analytics_checkbox.click()
 
                 sen_checkbox = row.find_element(By.ID, f"provisionmap-{unique_id}")
-                if sen_checkbox.get_dom_attribute("data-value") != user["sen"]:
+                if sen_checkbox.get_dom_attribute("data-value") == "no":
                     scroll_to_element(driver, sen_checkbox)
                     WebDriverWait(driver, 10).until(EC.element_to_be_clickable(sen_checkbox))
                     sen_checkbox.click()
 
                 detentions_checkbox = row.find_element(By.ID, f"detentions-{unique_id}")
-                if detentions_checkbox.get_dom_attribute("data-value") != user["detentions"]:
+                if detentions_checkbox.get_dom_attribute("data-value") == "no":
                     scroll_to_element(driver, detentions_checkbox)
                     WebDriverWait(driver, 10).until(EC.element_to_be_clickable(detentions_checkbox))
                     detentions_checkbox.click()
@@ -273,6 +266,7 @@ def send_summary_email(successful_users, failed_users, start_time, end_time):
 
 def main():
     start_time = datetime.now()
+    end_time = datetime.now()
     service = Service(str(driver_path))
     driver = webdriver.Edge(service=service, options=edge_options)
 
@@ -286,7 +280,7 @@ def main():
         users = parse_users_from_email()
         if not users:
             logging.info("No users found in the email to process.")
-            send_summary_email(successful_users, failed_users, start_time)
+            send_summary_email(successful_users, failed_users, start_time, end_time)
             return
 
         for user in users:
@@ -307,7 +301,6 @@ def main():
     except WebDriverException as e:
         logging.info(f"General WebDriver error: {e}")
     finally:
-        end_time = datetime.now()
         send_summary_email(successful_users, failed_users, start_time, end_time)
 
         if debugging:
