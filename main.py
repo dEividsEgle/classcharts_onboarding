@@ -5,9 +5,11 @@ import smtplib
 import re
 import imaplib
 import email
+import platform
 from pathlib import Path
 from email.message import EmailMessage
 from dotenv import load_dotenv
+from datetime import datetime
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.edge.options import Options
@@ -25,6 +27,7 @@ logging.basicConfig(stream=log_stream, level=logging.INFO, format=log_format)
 
 load_dotenv()
 
+LOGS_DIR = os.getenv("LOGS_DIR")
 LOGIN_PAGE = os.getenv("LOGIN_PAGE")
 USER_PAGE = os.getenv("USER_PAGE")
 ACCOUNT_EMAIL = os.getenv("ACCOUNT_EMAIL")
@@ -45,6 +48,16 @@ DEFAULT_DETENTIONS = "1"
 
 script_directory = Path(__file__).resolve().parent
 driver_path = script_directory.joinpath("edgedriver_macarm64", "msedgedriver")
+
+log_format = "%(asctime)s - %(levelname)s - %(message)s"
+
+if debugging:
+    logging.basicConfig(level=logging.INFO, format=log_format)
+else:
+    logs_dir = Path(LOGS_DIR)
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    log_file = logs_dir / f"script_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    logging.basicConfig(filename=log_file, level=logging.INFO, format=log_format)
 
 edge_options = Options()
 if debugging:
@@ -225,25 +238,41 @@ def set_password(driver, unique_id, user):
     except Exception as e:
         logging.info(f"Error occurred while setting password for {user['name']}: {e}")
 
-def send_summary_email(successful_users, failed_users):
-    sender = SENDER_EMAIL
+def send_summary_email(successful_users, failed_users, start_time, end_time):
     msg = EmailMessage()
-    msg['From'] = sender
+    msg['From'] = SENDER_EMAIL
     msg['To'] = RECEIVER_EMAIL
     msg['Subject'] = "Staff Onboarding - Class Charts User Activation Summary"
 
-    content = "Task Summary:\n\n"
+    content = (
+        "This is an automated script for Class Charts staff activation.\n\n"
+        f"Script Details:\n"
+        f"Operating System: {platform.system()} {platform.release()}\n"
+        f"Start Time: {start_time}\n"
+        f"End Time: {end_time}\n\n"
+    )
+
     if successful_users:
         content += "Successfully Processed Users:\n" + "\n".join(successful_users) + "\n\n"
     if failed_users:
         content += "Failed Users:\n" + "\n".join(failed_users) + "\n"
 
-    msg.set_content(content)
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-        smtp.login(sender, SENDER_PASSWORD)
-        smtp.send_message(msg)
+    if debugging:
+        content += "Log files were not saved, as debugging is enabled.\n"
+    else:
+        content += f"Log files can be found at: {log_file}\n"
+
+    try:
+        msg.set_content(content)
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
+            smtp.send_message(msg)
+        logging.info(f"Summary email sent successfuly to {RECEIVER_EMAIL}")
+    except Exception as e:
+        logging.error(f"Error sending summary email: {e}")
 
 def main():
+    start_time = datetime.now()
     service = Service(str(driver_path))
     driver = webdriver.Edge(service=service, options=edge_options)
 
@@ -257,7 +286,7 @@ def main():
         users = parse_users_from_email()
         if not users:
             logging.info("No users found in the email to process.")
-            send_summary_email(successful_users, failed_users)
+            send_summary_email(successful_users, failed_users, start_time)
             return
 
         for user in users:
@@ -275,12 +304,12 @@ def main():
                 failed_users.append(f"{user['name']} ({user['email']})")
                 logging.info(f"Error processing user {user['name']}: {e}")
 
-        send_summary_email(successful_users, failed_users)
-
     except WebDriverException as e:
         logging.info(f"General WebDriver error: {e}")
-        send_summary_email(successful_users, failed_users)
     finally:
+        end_time = datetime.now()
+        send_summary_email(successful_users, failed_users, start_time, end_time)
+
         if debugging:
             print(log_stream.getvalue())
         else:
