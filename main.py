@@ -18,12 +18,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-debugging = True
+debugging = False
 
 log_stream = io.StringIO()
 log_format = "%(message)s"
-
-logging.basicConfig(stream=log_stream, level=logging.INFO, format=log_format)
 
 load_dotenv()
 
@@ -48,12 +46,14 @@ driver_path = script_directory.joinpath("edgedriver_macarm64", "msedgedriver")
 log_format = "%(asctime)s - %(levelname)s - %(message)s"
 
 if debugging:
-    logging.basicConfig(level=logging.INFO, format=log_format)
+    logging.basicConfig(stream=log_stream, level=logging.INFO, format=log_format)
 else:
     logs_dir = Path(LOGS_DIR)
     logs_dir.mkdir(parents=True, exist_ok=True)
     log_file = logs_dir / f"script_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-    logging.basicConfig(filename=log_file, level=logging.INFO, format=log_format)
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(logging.Formatter(log_format))
+    logging.basicConfig(level=logging.INFO, handlers=[file_handler])
 
 edge_options = Options()
 if debugging:
@@ -271,7 +271,6 @@ def send_summary_email(successful_users, failed_users, start_time, end_time):
 
 def main():
     start_time = datetime.now()
-    end_time = datetime.now()
     service = Service(str(driver_path))
     driver = webdriver.Edge(service=service, options=edge_options)
 
@@ -285,11 +284,10 @@ def main():
         users = parse_users_from_email()
         if not users:
             logging.info("No users found in the email to process.")
-            send_summary_email(successful_users, failed_users, start_time, end_time)
             return
 
         for user in users:
-            logging.info(f"Processing user: {user['name']} ({user['email']}) with unique ID: {user_unique_id}")
+            logging.info(f"Processing user: {user['name']} ({user['email']})")
             try:
                 user_unique_id = enter_email_address(driver, user)
                 if user_unique_id:
@@ -310,8 +308,7 @@ def main():
             end_time = datetime.now()
             send_summary_email(successful_users, failed_users, start_time, end_time)
         else:
-            logging.info("No email content parsed. Summary email will not be sent.")
-
+            logging.info("No action taken.")
         if debugging:
             print(log_stream.getvalue())
         else:
