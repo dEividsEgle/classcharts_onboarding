@@ -331,6 +331,8 @@ def main():
     except WebDriverException as e:
         logging.info(f"General WebDriver error: {e}")
     finally:
+        end_time = datetime.now()
+        logging.info(f"{script_name} finished at: {end_time.strftime('%H:%M:%S')}")
         if successful_users or failed_users:
             end_time = datetime.now()
             send_summary_email(successful_users, failed_users, start_time, end_time)
