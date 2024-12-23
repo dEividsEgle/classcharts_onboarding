@@ -169,7 +169,7 @@ def login_to_account(driver):
         submit_button = wait_for_element(driver, By.XPATH, '//input[@type="submit" and @value="Log in"]')
         if submit_button:
             submit_button.click()
-            logging.info("Successfully authenticated.")
+            logging.info(f"Successfully Authenticated: {LOGIN_PAGE}")
 
 def navigate_to_user_page(driver):
     driver.get(USER_PAGE)
@@ -294,20 +294,22 @@ def send_summary_email(successful_users, failed_users, general_errors, start_tim
 def main():
     start_time = datetime.now()
     logging.info(f"{script_name} started at: {start_time.strftime('%H:%M:%S')}")
-    service = Service(str(driver_path))
-    driver = webdriver.Edge(service=service, options=edge_options)
 
     successful_users = []
     failed_users = []
+    driver = None
 
     try:
-        login_to_account(driver)
-        navigate_to_user_page(driver)
-
         users = parse_users_from_email()
         if not users:
             logging.info("No users found in the email to process.")
             return
+
+        service = Service(str(driver_path))
+        driver = webdriver.Edge(service=service, options=edge_options)
+
+        login_to_account(driver)
+        navigate_to_user_page(driver)
 
         for user in users:
             logging.info(f"Processing user: {user['name']} with email ({user['email']})")
@@ -341,10 +343,12 @@ def main():
             send_summary_email(successful_users, failed_users, [], start_time, end_time)
         else:
             logging.info("No action taken.")
+
         if debugging:
             print(log_stream.getvalue())
         else:
-            driver.quit()
+            if driver is not None:
+                driver.quit()
 
 if __name__ == "__main__":
     main()
