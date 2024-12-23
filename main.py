@@ -262,8 +262,8 @@ def send_summary_email(successful_users, failed_users, start_time, end_time):
     msg['Subject'] = "Staff Onboarding - Class Charts User Activation Summary"
 
     content = (
-        "This is an automated script for Class Charts staff activation.\n\n"
-        f"Script Details:\n"
+        "This is a summary email of an automated script for Class Charts staff user activation.\n\n"
+        f"Environment:\n"
         f"Operating System: {platform.system()} {platform.release()}\n"
         f"Start Time: {start_time}\n"
         f"End Time: {end_time}\n\n"
