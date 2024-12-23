@@ -6,6 +6,7 @@ import re
 import imaplib
 import email
 import platform
+import socket
 from pathlib import Path
 from email.message import EmailMessage
 from dotenv import load_dotenv
@@ -25,7 +26,7 @@ log_format = "%(message)s"
 
 load_dotenv()
 
-LOGS_DIR = os.getenv("LOGS_DIR")
+LOG_DIR = os.getenv("LOG_DIR")
 LOGIN_PAGE = os.getenv("LOGIN_PAGE")
 USER_PAGE = os.getenv("USER_PAGE")
 ACCOUNT_EMAIL = os.getenv("ACCOUNT_EMAIL")
@@ -43,18 +44,6 @@ PROCESSED_UIDS_FILE = os.getenv("PROCESSED_UIDS_FILE")
 script_directory = Path(__file__).resolve().parent
 script_name = Path(__file__).name
 driver_path = script_directory.joinpath("edgedriver_macarm64", "msedgedriver")
-
-log_format = "%(asctime)s - %(levelname)s - %(message)s"
-
-if debugging:
-    logging.basicConfig(stream=log_stream, level=logging.INFO, format=log_format)
-else:
-    logs_dir = Path(LOGS_DIR)
-    logs_dir.mkdir(parents=True, exist_ok=True)
-    log_file = logs_dir / f"script_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setFormatter(logging.Formatter(log_format))
-    logging.basicConfig(level=logging.INFO, handlers=[file_handler])
 
 edge_options = Options()
 if debugging:
@@ -85,7 +74,7 @@ def wait_for_element(driver, by, element_identifier, timeout=10):
         element_present = EC.presence_of_element_located((by, element_identifier))
         WebDriverWait(driver, timeout).until(element_present)
     except TimeoutException:
-        logging.info(f"Timeout waiting for {element_identifier}")
+        logging.error(f"Timeout waiting for {element_identifier}")
         return None
     return driver.find_element(by, element_identifier)
 
@@ -130,7 +119,7 @@ def fetch_latest_email():
 
             status, msg_data = mail.fetch(email_id, "(RFC822)")
             if status != "OK" or not msg_data or not isinstance(msg_data[0], tuple):
-                logging.info(f"Failed to fetch email with UID {uid}.")
+                logging.error(f"Failed to fetch email with UID {uid}.")
                 continue
 
             raw_email = msg_data[0][1]
@@ -147,7 +136,7 @@ def fetch_latest_email():
                 return msg.get_payload(decode=True).decode()
 
     except Exception as e:
-        logging.info(f"Error fetching email: {e}")
+        logging.error(f"Error fetching email: {e}")
         return ""
 
 def parse_users_from_email():
@@ -180,6 +169,7 @@ def login_to_account(driver):
         submit_button = wait_for_element(driver, By.XPATH, '//input[@type="submit" and @value="Log in"]')
         if submit_button:
             submit_button.click()
+            logging.info("Successfully authenticated.")
 
 def navigate_to_user_page(driver):
     driver.get(USER_PAGE)
@@ -230,7 +220,7 @@ def enter_email_address(driver, user):
         logging.info(f"User '{user['name']}' not found in the portal.")
         return None
     except TimeoutException:
-        logging.info("Timeout while searching for user elements.")
+        logging.error("Timeout while searching for user elements.")
         return None
 
 def set_password(driver, unique_id, user):
@@ -253,11 +243,11 @@ def set_password(driver, unique_id, user):
         driver.execute_script("arguments[0].click();", ok_button)
         logging.info(f"Password reset email sent to: {user['email']}.")
     except TimeoutException:
-        logging.info(f"Timeout while setting password for {user['name']}.")
+        logging.error(f"Timeout while setting password for {user['name']}.")
     except Exception as e:
-        logging.info(f"Error occurred while setting password for {user['name']}: {e}")
+        logging.error(f"Error occurred while setting password for {user['name']}: {e}")
 
-def send_summary_email(successful_users, failed_users, start_time, end_time):
+def send_summary_email(successful_users, failed_users, general_errors, start_time, end_time):
     msg = EmailMessage()
     msg['From'] = SENDER_EMAIL
     msg['To'] = RECEIVER_EMAIL
@@ -282,11 +272,15 @@ def send_summary_email(successful_users, failed_users, start_time, end_time):
         content += "Failed Users:\n"
         for user in failed_users:
             content += f"{user['name']} - {user['email']}\n"
-
-    if debugging:
-        content += "Log files were not saved, as debugging is enabled.\n"
     else:
-        content += f"Log files can be found at: {log_file}\n"
+        content += "No failures occurred.\n"
+
+    if general_errors:
+        content += "General Errors:\n"
+        for error in general_errors:
+            content += f"{error}\n\n"
+
+    content += f"\n\nLog files can be found at: {absolute_log_path}\n"
 
     try:
         msg.set_content(content)
@@ -295,7 +289,7 @@ def send_summary_email(successful_users, failed_users, start_time, end_time):
             smtp.send_message(msg)
         logging.info(f"Summary email sent successfully to {RECEIVER_EMAIL}")
     except Exception as e:
-        logging.error(f"Error sending summary email: {e}")
+        logging.error(f"Failed to send summary email: {e}")
 
 def main():
     start_time = datetime.now()
@@ -316,7 +310,7 @@ def main():
             return
 
         for user in users:
-            logging.info(f"Processing user: {user['name']} ({user['email']})")
+            logging.info(f"Processing user: {user['name']} with email ({user['email']})")
             try:
                 user_unique_id = enter_email_address(driver, user)
                 if user_unique_id:
@@ -328,16 +322,23 @@ def main():
                     logging.info(f"Failed to find user: {user['name']}")
             except Exception as e:
                 failed_users.append({"name": user["name"], "email": user["email"]})
-                logging.info(f"Error processing user {user['name']}: {e}")
+                logging.error(f"Error processing user {user['name']}: {e}")
 
     except WebDriverException as e:
-        logging.info(f"General WebDriver error: {e}")
+        logging.error(f"General WebDriver error: {e}")
+        end_time = datetime.now()
+        send_summary_email(
+            start_time=start_time,
+            successful_users=[],
+            failed_users=[],
+            general_errors=[f"General WebDriver error: {e}"],
+            end_time=end_time
+        )
     finally:
         end_time = datetime.now()
         logging.info(f"{script_name} finished at: {end_time.strftime('%H:%M:%S')}")
         if successful_users or failed_users:
-            end_time = datetime.now()
-            send_summary_email(successful_users, failed_users, start_time, end_time)
+            send_summary_email(successful_users, failed_users, [], start_time, end_time)
         else:
             logging.info("No action taken.")
         if debugging:
