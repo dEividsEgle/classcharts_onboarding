@@ -207,6 +207,7 @@ def enter_email_address(driver, user):
                     scroll_to_element(driver, analytics_checkbox)
                     WebDriverWait(driver, 10).until(EC.element_to_be_clickable(analytics_checkbox))
                     analytics_checkbox.click()
+                    logging.info(f"Permissions for {unique_id}: Analytics Enabled.")
 
                 sen_checkbox = row.find_element(By.ID, f"provisionmap-{unique_id}")
                 if sen_checkbox.get_dom_attribute("data-value") == "no":
