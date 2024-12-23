@@ -201,6 +201,7 @@ def enter_email_address(driver, user):
                 email_input = row.find_element(By.ID, f"email-{unique_id}")
                 email_input.clear()
                 email_input.send_keys(user["email"])
+                logging.info(f"Email address '{user['email']}' entered for '{user['name']}' (ID:{unique_id})")
 
                 analytics_checkbox = row.find_element(By.ID, f"analytics-{unique_id}")
                 if analytics_checkbox.get_dom_attribute("data-value") == "no":
