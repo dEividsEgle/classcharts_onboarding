@@ -265,8 +265,10 @@ def send_summary_email(successful_users, failed_users, start_time, end_time):
         "This is a summary email of an automated script for Class Charts staff user activation.\n\n"
         f"Environment:\n"
         f"Operating System: {platform.system()} {platform.release()}\n"
-        f"Start Time: {start_time}\n"
-        f"End Time: {end_time}\n\n"
+        f"Hostname: {socket.gethostname()}\n"
+        f"Script Name: {script_name}\n"
+        f"Start Time: {start_time.strftime('%H:%M:%S')}\n"
+        f"End Time: {end_time.strftime('%H:%M:%S')}\n\n"
     )
 
     if successful_users:
