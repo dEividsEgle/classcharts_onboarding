@@ -41,6 +41,7 @@ EMAIL_SUBJECT = os.getenv("EMAIL_SUBJECT")
 PROCESSED_UIDS_FILE = os.getenv("PROCESSED_UIDS_FILE")
 
 script_directory = Path(__file__).resolve().parent
+script_name = Path(__file__).name
 driver_path = script_directory.joinpath("edgedriver_macarm64", "msedgedriver")
 
 log_format = "%(asctime)s - %(levelname)s - %(message)s"
