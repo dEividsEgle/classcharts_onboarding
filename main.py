@@ -221,6 +221,7 @@ def enter_email_address(driver, user):
                     scroll_to_element(driver, detentions_checkbox)
                     WebDriverWait(driver, 10).until(EC.element_to_be_clickable(detentions_checkbox))
                     detentions_checkbox.click()
+                    logging.info(f"Permissions for {unique_id}: Detentions Enabled.")
 
                 return unique_id
 
