@@ -297,6 +297,7 @@ def send_summary_email(successful_users, failed_users, start_time, end_time):
 
 def main():
     start_time = datetime.now()
+    logging.info(f"{script_name} started at: {start_time.strftime('%H:%M:%S')}")
     service = Service(str(driver_path))
     driver = webdriver.Edge(service=service, options=edge_options)
 
