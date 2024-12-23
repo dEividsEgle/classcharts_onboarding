@@ -61,6 +61,24 @@ if debugging:
 else:
     edge_options.add_argument("--headless")
 
+log_format = "%(asctime)s - %(levelname)s - %(message)s"
+log_time_format = "%H:%M:%S"
+
+log_dir = Path(LOG_DIR)
+log_dir.mkdir(parents=True, exist_ok=True)
+log_file = log_dir / f"{Path(script_name).stem}_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+absolute_log_path = log_file.resolve()
+
+handlers = [
+    logging.FileHandler(log_file),
+    logging.StreamHandler()
+]
+
+if debugging:
+    handlers.append(logging.StreamHandler(stream=log_stream))
+
+logging.basicConfig(level=logging.INFO, format=log_format, datefmt=log_time_format, handlers=handlers)
+
 def wait_for_element(driver, by, element_identifier, timeout=10):
     try:
         element_present = EC.presence_of_element_located((by, element_identifier))
