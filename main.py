@@ -1,21 +1,22 @@
-import os
-import logging
-import io
-import smtplib
-import re
-import imaplib
 import email
+import io
+import logging
+import os
 import platform
+import re
 import socket
-from pathlib import Path
-from email.message import EmailMessage
-from dotenv import load_dotenv
 from datetime import datetime
+from email.message import EmailMessage
+from pathlib import Path
+
+import imaplib
+import smtplib
+from dotenv import load_dotenv
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException, WebDriverException
+from selenium.webdriver.common.by import By
 from selenium.webdriver.edge.options import Options
 from selenium.webdriver.edge.service import Service
-from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
